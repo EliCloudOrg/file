@@ -1,0 +1,42 @@
+# ============================================================
+# EliCloud 文件服务 —— 本地开发编排（build: .，不用于生产）
+#
+# 生产编排由 /srv/file/deploy.sh 生成（拉 ghcr 镜像、数据目录
+# /home/docker-admin/elicoud/file/data、只接网关网络）。
+#
+# 本地默认用 STORAGE_BACKEND=local：不需要 COS 凭据也能把整套接口跑起来。
+# 想连真实 COS 就把 .env.local 里的 STORAGE_BACKEND 改为 cos 并填 COS_*。
+#
+#   1. cp .env.example .env.local && 改 SSO/DATABASE_URL 等
+#   2. docker compose up -d
+#   3. curl http://127.0.0.1:8002/healthz
+# ============================================================
+services:
+  file:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # 本地/国内构建统一走清华源；GitHub Actions 的镜像构建仍用 Dockerfile 默认官方源。
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+    image: elicloud-file:dev
+    container_name: file-dev
+    restart: unless-stopped
+    user: "1002:1003"
+    env_file:
+      - .env.local
+    volumes:
+      - ./data:/data
+    ports:
+      # 只绑回环：本机 curl / SSH 隧道调试用（8000=sso、8001=mc 已占）
+      - "127.0.0.1:8002:8000"
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5).status == 200 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

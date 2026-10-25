@@ -1,0 +1,5 @@
+# EliCloud 文件服务 —— 测试依赖
+# 一条命令跑通：pip install -r requirements-dev.txt && pytest -q
+-r requirements.txt
+pytest>=8.0,<9.0
+httpx>=0.27,<1.0

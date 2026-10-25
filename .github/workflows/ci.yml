@@ -1,0 +1,81 @@
+# CI —— file（Python 3.12 / FastAPI）
+#
+# 步骤块取「Python / pip」配方，并替换成本仓库真实存在的命令：
+#   * 依赖：requirements.txt + requirements-dev.txt
+#   * 测试：pytest -q（全程 STORAGE_BACKEND=local，不访问真实 COS/SSO）
+#   * 构建：Python 应用无构建产物；用「编译全部源码 + 导入 app.main」代替
+name: CI
+
+on:
+  pull_request:
+    branches: [main, prod]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Syntax check
+        run: python -m compileall -q app tests
+
+      # 导入 app.main 会真正构造存储后端（local 会建目录）与数据库引擎，
+      # 所以这里给一套完全本地的假配置；不含任何真实凭据。
+      - name: Import check
+        env:
+          STORAGE_BACKEND: local
+          LOCAL_STORAGE_ROOT: /tmp/file-ci-blobs
+          TEMP_ROOT: /tmp/file-ci-tmp
+          DATABASE_URL: sqlite:////tmp/file-ci.db
+          SSO_ISSUER: https://146.56.237.33/auth
+          SSO_JWKS_URL: https://146.56.237.33/auth/.well-known/jwks.json
+          JWT_AUDIENCE: elicloud-services
+          REQUIRED_READ_SCOPE: files:read
+          REQUIRED_WRITE_SCOPE: files:write
+          CLEANUP_ENABLED: "false"
+          LOG_LEVEL: warning
+        run: python -c "import app.main; print('app.main imported ok')"
+
+      - name: Test
+        run: pytest -q
+
+  guard-prod-source:
+    name: Guard prod source
+    if: ${{ github.event_name == 'pull_request' && github.base_ref == 'prod' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only main may target prod
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          echo "base=${BASE_REF} head=${HEAD_REF}"
+          if [ "${HEAD_REF}" != "main" ]; then
+            echo "::error::只有 main 可以发 PR 到 prod（当前 head=${HEAD_REF}）"
+            exit 1
+          fi
+          echo "OK: PR 来自 main"

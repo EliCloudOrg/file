@@ -1,0 +1,12 @@
+# EliCloud 文件服务 —— 运行时依赖（最小必要集合）
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+pydantic>=2.7,<3.0
+pydantic-settings>=2.3,<3.0
+# RS256 验签（[crypto] 会带上 cryptography）
+PyJWT[crypto]>=2.8,<3.0
+SQLAlchemy>=2.0,<3.0
+# multipart/form-data（上传接口）
+python-multipart>=0.0.9,<0.1
+# 腾讯云 COS 对象存储（生产后端；本地开发用 local 后端不需要它联网）
+cos-python-sdk-v5>=1.9,<2.0

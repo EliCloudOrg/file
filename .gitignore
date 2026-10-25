@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 运行时数据与密钥：绝不进仓库
+data/
+.env
+.env.local
+
+# 测试/自检临时目录（本机 TMPDIR 被指向 workspace 时会留在这里）
+file-tests-*/
+file-e2e-*/
+pytest-of-*/
+tmp*/

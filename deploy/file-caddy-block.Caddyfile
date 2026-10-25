@@ -1,0 +1,33 @@
+# ============================================================
+# EliCloud 文件服务（容器 file:8000）—— 追加于 dsh-nas Caddyfile
+#
+# 为什么单独一个站点块：DSH 面板站点上有**不带 matcher 的 basic_auth 兜底指令**，
+# 把 /file/* 并进面板站点块会被它拦下（同一个坑在 SSO / MC 上已经踩过）。
+#
+# 映射规则（纯剥离，服务内就是 /v1/... ，不再 rewrite）：
+#   /file/v1/files            -> /v1/files
+#   /file/v1/files/{id}/content -> /v1/files/{id}/content
+#   /file/healthz             -> /healthz
+#
+# ⚠️ 站点块地址里的 /file/* 只用于**选中站点块**，块内请求路径不会被剥离，
+#    所以块内 matcher 必须写完整的 /file/... 路径。
+#
+# 改完先用一次性容器校验、再 reload（校验失败会让网关进崩溃循环，公网全 502）：
+#   docker run --rm --entrypoint caddy -v /home/docker-admin/dsh-nas/caddy:/etc/caddy:ro \
+#     caddy:2-alpine validate --config /etc/caddy/Caddyfile     # 必须看到 Valid configuration
+#   docker exec dsh-caddy caddy reload --config /etc/caddy/Caddyfile
+# ============================================================
+https://146.56.237.33/file/* {
+	tls {
+		issuer acme {
+			profile shortlived
+		}
+	}
+
+	log
+
+	handle /file/* {
+		uri strip_prefix /file
+		reverse_proxy file:8000
+	}
+}
