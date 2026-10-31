@@ -10,8 +10,16 @@
 > **首次部署踩到的两个坑（已修，留档）**：
 > 1. `COS_BUCKET` 在文档里曾误写成 `elicoudcos-1465229333`（少了 `l`），导致健康检查
 >    探活返回 `NoSuchResource` / `503`。账号下的真实桶名是 **`elicloudcos-1465229333`**。
-> 2. 该 ghcr 包刚推上去时镜像加速源还没同步，`docker pull` 失败后由 `deploy.sh`
->    回退到服务器上的同 tag 本地镜像；等 Actions 把包推到 ghcr.io 后，后续部署即可正常拉取。
+> 2. **镜像加速源对 blob 的拉取会超时**：`ghcr.nju.edu.cn` 能返回 manifest，但下载层时
+>    `net/http: timeout awaiting response headers`。因此 `deploy.sh` 走了它的既有回退分支——
+>    **线上当前运行的镜像是服务器上本地构建的**（同一个 commit `3c29b22`，`docker build` 产出，
+>    tag 与 CI 一致）。功能等价，但不是 Actions 构建的那份。
+>
+> **⚠️ 运维提示**：只要部署日志里出现 `⚠️ pull 失败/超时，但本机已有 …，改用它`，
+> 就说明这次**没有真的换镜像**。此时必须确认 `docker inspect file --format '{{.Created}}'`
+> 的时间是否符合预期，否则线上很可能仍在跑旧版本。若加速源长期拉不动，可选：
+> 换一个能通 blobs 的 ghcr 加速源、在服务器本地构建镜像、或把镜像改推 Docker Hub
+> （服务器已配 docker.io 加速源）。
 
 | 项 | 值 |
 |---|---|
