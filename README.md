@@ -6,7 +6,7 @@
 * 对外路径：`https://146.56.237.33/file/*`（网关剥掉 `/file`，容器内是 `/v1/...`）
 * 容器 / 项目 / 镜像：`file` / `file` / `ghcr.io/elicloudorg/file:prod`
 * 元数据：本地 SQLite（`/data/file.db`）
-* 内容：**腾讯云私有 COS 桶** `elicoudcos-1465229333`（ap-nanjing，150 GiB）
+* 内容：**腾讯云私有 COS 桶** `elicloudcos-1465229333`（ap-nanjing，150 GiB）
 * 运行手册：[README-deploy.md](README-deploy.md)
 
 ## 一、为什么不用 `/elicos` 挂载
@@ -93,7 +93,7 @@ audit_logs      上传/删除/改可见性/授权/过期/拒绝/对象丢失（�
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `STORAGE_BACKEND` | `local` | 生产必须 `cos`（`deploy.sh` 会拒绝其它值） |
-| `COS_BUCKET` | `elicoudcos-1465229333` | 私有桶 |
+| `COS_BUCKET` | `elicloudcos-1465229333` | 私有桶 |
 | `COS_SECRET_ID` / `COS_SECRET_KEY` | 无 | `backend=cos` 时缺失即启动失败 |
 | `MAX_FILE_BYTES` | 25 MiB | 单文件上限 |
 | `MAX_TTL_SECONDS` | 30 天 | 有效期上限 |

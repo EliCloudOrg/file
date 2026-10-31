@@ -4,6 +4,15 @@
 同一套）。框架只负责**触发和调用**：Actions 构建镜像、把 `deploy.sh` 送上服务器、SSH 执行；
 一切具体部署逻辑都在服务器的 `/srv/file/deploy.sh` 里。
 
+> **当前状态（2026-10-31 已上线）**：`prod` 已推送并完成首次部署；服务器上有 `/srv/file`、
+> 容器 `file`（healthy）与 Caddy 的 `/file/*` 路由。
+>
+> **首次部署踩到的两个坑（已修，留档）**：
+> 1. `COS_BUCKET` 在文档里曾误写成 `elicoudcos-1465229333`（少了 `l`），导致健康检查
+>    探活返回 `NoSuchResource` / `503`。账号下的真实桶名是 **`elicloudcos-1465229333`**。
+> 2. 该 ghcr 包刚推上去时镜像加速源还没同步，`docker pull` 失败后由 `deploy.sh`
+>    回退到服务器上的同 tag 本地镜像；等 Actions 把包推到 ghcr.io 后，后续部署即可正常拉取。
+
 | 项 | 值 |
 |---|---|
 | 应用名 / 服务器目录 | `file` / `/srv/file` |
@@ -14,7 +23,7 @@
 | 宿主调试端口 | `127.0.0.1:8002` |
 | 运行时变量 | `/srv/file/app.env`（600，`deploy:deploy`） |
 | 数据卷 | `/home/docker-admin/elicoud/file/data` → 容器 `/data`（`file.db` + 上传暂存） |
-| 内容真源 | 私有 COS 桶 `elicoudcos-1465229333`，前缀 `elicloud-file/` |
+| 内容真源 | 私有 COS 桶 `elicloudcos-1465229333`，前缀 `elicloud-file/` |
 
 ## 1. 部署架构
 
@@ -43,7 +52,7 @@
                                                │ HTTPS（同地域内网域名）
                                                ▼
                             ┌───────────────────────────────────────────────┐
-                            │ 私有 COS 桶 elicoudcos-1465229333 (ap-nanjing) │
+                            │ 私有 COS 桶 elicloudcos-1465229333 (ap-nanjing) │
                             │   elicloud-file/blobs/<xx>/f_<id>              │
                             └───────────────────────────────────────────────┘
 ```
@@ -110,7 +119,7 @@ ghcr        401（正常）
    ```ini
    STORAGE_BACKEND=cos
    COS_REGION=ap-nanjing
-   COS_BUCKET=elicoudcos-1465229333
+   COS_BUCKET=elicloudcos-1465229333
    COS_SECRET_ID=...
    COS_SECRET_KEY=...
    COS_KEY_PREFIX=elicloud-file
@@ -135,7 +144,7 @@ ghcr        401（正常）
          "effect": "allow",
          "action": ["cos:GetObject", "cos:PutObject", "cos:DeleteObject",
                     "cos:HeadObject", "cos:HeadBucket", "cos:GetBucket"],
-         "resource": ["qcs::cos:ap-nanjing:uid/1465229333:elicoudcos-1465229333/elicloud-file/*"]
+         "resource": ["qcs::cos:ap-nanjing:uid/1465229333:elicloudcos-1465229333/elicloud-file/*"]
        }
      ]
    }
@@ -296,7 +305,7 @@ curl -s http://127.0.0.1:8002/healthz | jq
 
 ```bash
 # 换桶不换 key：对象 key 由文件 id 派生，DB 不用改
-coscli cp cos://elicoudcos-1465229333/elicloud-file \
+coscli cp cos://elicloudcos-1465229333/elicloud-file \
            cos://<新桶>/elicloud-file -r
 # 校验对象数/总字节一致后，只改 app.env 的 COS_BUCKET（+ 凭据若换账号），重新部署
 ```
@@ -320,7 +329,7 @@ coscli cp cos://elicoudcos-1465229333/elicloud-file \
 | 数据 | 位置 | 备份建议 |
 |---|---|---|
 | 元数据（真源） | `/home/docker-admin/elicoud/file/data/file.db` | 每日 `sqlite3 file.db ".backup ..."`；WAL 模式下**不能**只拷 `.db` |
-| 内容 | COS 桶 `elicoudcos-1465229333`/`elicloud-file/` | 桶本身多副本；异地备份用 `coscli cp -r` |
+| 内容 | COS 桶 `elicloudcos-1465229333`/`elicloud-file/` | 桶本身多副本；异地备份用 `coscli cp -r` |
 | 运行时变量 | `/srv/file/app.env` | 密码管理器；丢失会导致无法读写桶 |
 
 **两者必须一起恢复**：只有 DB 没有对象 → 下载 404（并会把行标记 deleted）；
